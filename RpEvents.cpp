@@ -369,7 +369,7 @@ void RpEvents_Init()
 {
     s_playerXP = 0;
     s_playerLevel = 1;
-    s_xpToNext = 100;
+    s_xpToNext = 800;
     s_recentRPGain = 0;
     s_recentRPGainTime = 0;
     s_inVehicleLastFrame = false;
