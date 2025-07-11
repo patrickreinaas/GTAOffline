@@ -177,7 +177,7 @@ void draw_car_shop_menu() {
     const float MENU_W = 0.29f;
     const float MENU_H = 0.038f;
 
-    // Display Player's Money
+    // Display Player's Money at the top
     char moneyBuf[64];
     sprintf_s(moneyBuf, "Your Money: $%d", Money_Get());
     UI::SET_TEXT_FONT(0);
@@ -187,45 +187,27 @@ void draw_car_shop_menu() {
     UI::_ADD_TEXT_COMPONENT_STRING(moneyBuf);
     UI::_DRAW_TEXT(MENU_X, MENU_Y - 0.08f);
 
-    // --- Draw Category or Vehicle List ---
     if (!inVehicleSelection) {
         // --- Category Selection ---
         const int numOptions = g_vehicleCategories.size() + 1;
+        float totalHeight = MENU_H * (numOptions + 1);
 
-        GRAPHICS::DRAW_RECT(MENU_X + MENU_W * 0.5f, MENU_Y - 0.038f + MENU_H * (numOptions + 1) * 0.5f, MENU_W, MENU_H * (numOptions + 1), 14, 17, 22, 228);
-        UI::SET_TEXT_FONT(0);
-        UI::SET_TEXT_SCALE(0.0f, 0.43f);
-        UI::SET_TEXT_COLOUR(255, 255, 220, 252);
-        UI::_SET_TEXT_ENTRY("STRING");
-        UI::_ADD_TEXT_COMPONENT_STRING("Car Shop");
-        UI::_DRAW_TEXT(MENU_X + 0.014f, MENU_Y - 0.062f);
+        // Draw background and header
+        GRAPHICS::DRAW_RECT(MENU_X + MENU_W * 0.5f, MENU_Y - MENU_H * 0.5f + totalHeight * 0.5f, MENU_W, totalHeight, BG_COLOR.r, BG_COLOR.g, BG_COLOR.b, BG_COLOR.a);
+        DrawMenuHeader("Car Shop", MENU_X, MENU_Y, MENU_W);
 
+        // Draw options
+        float optionY = MENU_Y + MENU_H;
         for (size_t i = 0; i < g_vehicleCategories.size(); ++i) {
-            float cy = MENU_Y + MENU_H * i;
-            bool active = (i == carCategoryIndex);
-            GRAPHICS::DRAW_RECT(MENU_X + MENU_W * 0.5f, cy + (MENU_H - 0.004f) * 0.5f, MENU_W, MENU_H - 0.004f, active ? 190 : 60, active ? 130 : 80, active ? 215 : 80, active ? 255 : 135);
-            UI::SET_TEXT_FONT(0);
-            UI::SET_TEXT_SCALE(0.0f, 0.38f);
-            UI::SET_TEXT_COLOUR(0, 0, 0, 255);
-            UI::_SET_TEXT_ENTRY("STRING");
-            UI::_ADD_TEXT_COMPONENT_STRING(const_cast<char*>(g_vehicleCategories[i].name));
-            UI::_DRAW_TEXT(MENU_X + 0.017f, cy + 0.007f);
+            DrawMenuOption(g_vehicleCategories[i].name, MENU_X, optionY + MENU_H * i, MENU_W, MENU_H, i == carCategoryIndex);
         }
-        float back_cy = MENU_Y + MENU_H * g_vehicleCategories.size();
-        bool back_active = (g_vehicleCategories.size() == carCategoryIndex);
-        GRAPHICS::DRAW_RECT(MENU_X + MENU_W * 0.5f, back_cy + (MENU_H - 0.004f) * 0.5f, MENU_W, MENU_H - 0.004f, back_active ? 215 : 80, back_active ? 60 : 80, back_active ? 60 : 80, 255);
-        UI::SET_TEXT_FONT(0);
-        UI::SET_TEXT_SCALE(0.0f, 0.38f);
-        UI::SET_TEXT_COLOUR(0, 0, 0, 255);
-        UI::_SET_TEXT_ENTRY("STRING");
-        UI::_ADD_TEXT_COMPONENT_STRING("Back");
-        UI::_DRAW_TEXT(MENU_X + 0.017f, back_cy + 0.007f);
+        DrawMenuOption("Back", MENU_X, optionY + MENU_H * g_vehicleCategories.size(), MENU_W, MENU_H, g_vehicleCategories.size() == carCategoryIndex);
 
+        // Navigation and activation logic
         if (IsKeyJustUp(VK_NUMPAD8) || PadPressed(DPAD_UP)) carCategoryIndex = (carCategoryIndex - 1 + numOptions) % numOptions;
         if (IsKeyJustUp(VK_NUMPAD2) || PadPressed(DPAD_DOWN)) carCategoryIndex = (carCategoryIndex + 1) % numOptions;
         if (IsKeyJustUp(VK_NUMPAD5) || PadPressed(BTN_A)) {
             if (carCategoryIndex == g_vehicleCategories.size()) {
-                // FIXED: Replaced CAT_MAIN with its integer value 0
                 menuCategory = 0; // CAT_MAIN
                 menuIndex = 4;
             }
@@ -239,38 +221,22 @@ void draw_car_shop_menu() {
         // --- Vehicle Selection ---
         VehicleCategory& selectedCategory = g_vehicleCategories[carCategoryIndex];
         const int numOptions = selectedCategory.vehicles.size() + 1;
+        float totalHeight = MENU_H * (numOptions + 1);
 
-        GRAPHICS::DRAW_RECT(MENU_X + MENU_W * 0.5f, MENU_Y - 0.038f + MENU_H * (numOptions + 1) * 0.5f, MENU_W, MENU_H * (numOptions + 1), 14, 17, 22, 228);
-        UI::SET_TEXT_FONT(0);
-        UI::SET_TEXT_SCALE(0.0f, 0.43f);
-        UI::SET_TEXT_COLOUR(255, 255, 220, 252);
-        UI::_SET_TEXT_ENTRY("STRING");
-        UI::_ADD_TEXT_COMPONENT_STRING(const_cast<char*>(selectedCategory.name));
-        UI::_DRAW_TEXT(MENU_X + 0.014f, MENU_Y - 0.062f);
+        // Draw background and header
+        GRAPHICS::DRAW_RECT(MENU_X + MENU_W * 0.5f, MENU_Y - MENU_H * 0.5f + totalHeight * 0.5f, MENU_W, totalHeight, BG_COLOR.r, BG_COLOR.g, BG_COLOR.b, BG_COLOR.a);
+        DrawMenuHeader(selectedCategory.name, MENU_X, MENU_Y, MENU_W);
 
+        // Draw options
+        float optionY = MENU_Y + MENU_H;
+        char vehicleLabel[100];
         for (size_t i = 0; i < selectedCategory.vehicles.size(); ++i) {
-            float cy = MENU_Y + MENU_H * i;
-            bool active = (i == vehicleIndex);
-            GRAPHICS::DRAW_RECT(MENU_X + MENU_W * 0.5f, cy + (MENU_H - 0.004f) * 0.5f, MENU_W, MENU_H - 0.004f, active ? 190 : 60, active ? 130 : 80, active ? 215 : 80, active ? 255 : 135);
-            UI::SET_TEXT_FONT(0);
-            UI::SET_TEXT_SCALE(0.0f, 0.38f);
-            UI::SET_TEXT_COLOUR(0, 0, 0, 255);
-            UI::_SET_TEXT_ENTRY("STRING");
-            char vehicleLabel[100];
-            sprintf_s(vehicleLabel, "%s - $%d", selectedCategory.vehicles[i].name, selectedCategory.vehicles[i].price);
-            UI::_ADD_TEXT_COMPONENT_STRING(vehicleLabel);
-            UI::_DRAW_TEXT(MENU_X + 0.017f, cy + 0.007f);
+            sprintf_s(vehicleLabel, "$%d", selectedCategory.vehicles[i].price);
+            DrawPairedMenuOption(selectedCategory.vehicles[i].name, vehicleLabel, MENU_X, optionY + MENU_H * i, MENU_W, MENU_H, i == vehicleIndex);
         }
-        float back_cy = MENU_Y + MENU_H * selectedCategory.vehicles.size();
-        bool back_active = (selectedCategory.vehicles.size() == vehicleIndex);
-        GRAPHICS::DRAW_RECT(MENU_X + MENU_W * 0.5f, back_cy + (MENU_H - 0.004f) * 0.5f, MENU_W, MENU_H - 0.004f, back_active ? 215 : 80, back_active ? 60 : 80, back_active ? 60 : 80, 255);
-        UI::SET_TEXT_FONT(0);
-        UI::SET_TEXT_SCALE(0.0f, 0.38f);
-        UI::SET_TEXT_COLOUR(0, 0, 0, 255);
-        UI::_SET_TEXT_ENTRY("STRING");
-        UI::_ADD_TEXT_COMPONENT_STRING("Back");
-        UI::_DRAW_TEXT(MENU_X + 0.017f, back_cy + 0.007f);
+        DrawMenuOption("Back", MENU_X, optionY + MENU_H * selectedCategory.vehicles.size(), MENU_W, MENU_H, selectedCategory.vehicles.size() == vehicleIndex);
 
+        // Navigation and activation logic
         if (IsKeyJustUp(VK_NUMPAD8) || PadPressed(DPAD_UP)) vehicleIndex = (vehicleIndex - 1 + numOptions) % numOptions;
         if (IsKeyJustUp(VK_NUMPAD2) || PadPressed(DPAD_DOWN)) vehicleIndex = (vehicleIndex + 1) % numOptions;
         if (IsKeyJustUp(VK_NUMPAD5) || PadPressed(BTN_A)) {

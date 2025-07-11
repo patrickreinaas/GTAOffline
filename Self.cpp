@@ -347,74 +347,38 @@ void Self_Tick() {
     if (infiniteJump) handleInfiniteJump(ped, p);
 }
 
-void Self_DrawMenu(int& menuIndex, float x, float y, float w, float h) {
-    static const char* selfOpts_Normal[] = {
-        "God Mode", "Never Wanted", "Infinite Stamina", "Seatbelt",
-        "TP to Waypoint", "Superman", "Super Jump", "Infinite Hop", "Ultra Jump", "Fast Run", "Fast Swim", "No Ragdoll"
-    };
-    bool* selfToggles_Normal[] = {
-        &playerGodMode, &neverWanted, &infStamina, &seatbelt, &teleportToWaypoint,
-        &superman, &superJump, &infiniteJump, &ultraJump, &fastRun, &fastSwim, &noRagdoll
-    };
-    int selfNum_Normal = sizeof(selfOpts_Normal) / sizeof(selfOpts_Normal[0]);
+int Self_GetNumOptions() {
+    return superman ? 15 : 12;
+}
 
-    static const char* selfOpts_Superman[] = {
-        "God Mode", "Never Wanted", "Infinite Stamina", "Seatbelt", "TP to Waypoint", "Superman",
-        "  > Superman Flight", "  > Laser Eyes", "  > Superman Impact",
-        "Super Jump", "Infinite Hop", "Ultra Jump", "Fast Run", "Fast Swim", "No Ragdoll"
-    };
-    bool* selfToggles_Superman[] = {
-        &playerGodMode, &neverWanted, &infStamina, &seatbelt, &teleportToWaypoint, &superman,
-        &supermanFlight, &laserEyes, &supermanImpact,
-        &superJump, &infiniteJump, &ultraJump, &fastRun, &fastSwim, &noRagdoll
-    };
+// FIX: Rewrote DrawMenu to use shared UI functions and match style
+void Self_DrawMenu(int& menuIndex, float x, float y, float w, float h) {
+    static const char* selfOpts_Normal[] = { "God Mode", "Never Wanted", "Infinite Stamina", "Seatbelt", "TP to Waypoint", "Superman", "Super Jump", "Infinite Hop", "Ultra Jump", "Fast Run", "Fast Swim", "No Ragdoll" };
+    bool* selfToggles_Normal[] = { &playerGodMode, &neverWanted, &infStamina, &seatbelt, &teleportToWaypoint, &superman, &superJump, &infiniteJump, &ultraJump, &fastRun, &fastSwim, &noRagdoll };
+    int selfNum_Normal = sizeof(selfOpts_Normal) / sizeof(selfOpts_Normal[0]);
+    static const char* selfOpts_Superman[] = { "God Mode", "Never Wanted", "Infinite Stamina", "Seatbelt", "TP to Waypoint", "Superman", "  > Superman Flight", "  > Laser Eyes", "  > Superman Impact", "Super Jump", "Infinite Hop", "Ultra Jump", "Fast Run", "Fast Swim", "No Ragdoll" };
+    bool* selfToggles_Superman[] = { &playerGodMode, &neverWanted, &infStamina, &seatbelt, &teleportToWaypoint, &superman, &supermanFlight, &laserEyes, &supermanImpact, &superJump, &infiniteJump, &ultraJump, &fastRun, &fastSwim, &noRagdoll };
     int selfNum_Superman = sizeof(selfOpts_Superman) / sizeof(selfOpts_Superman[0]);
 
     const char** currentOpts = superman ? selfOpts_Superman : selfOpts_Normal;
     bool** currentToggles = superman ? selfToggles_Superman : selfToggles_Normal;
     int currentNum = superman ? selfNum_Superman : selfNum_Normal;
 
-    auto drawOption = [&](int idx, const char* name, bool* toggle, float cy, bool active = false) {
-        GRAPHICS::DRAW_RECT(x + w * 0.5f, cy + h * 0.5f, w, h - 0.004f, active ? 120 : 80, active ? 180 : 80, active ? 230 : 120, active ? 255 : 220);
-        UI::SET_TEXT_FONT(0);
-        UI::SET_TEXT_SCALE(0.0f, 0.36f);
-        UI::SET_TEXT_COLOUR(active ? 40 : 0, active ? 60 : 0, active ? 130 : 0, 255);
-        UI::_SET_TEXT_ENTRY("STRING");
-        UI::_ADD_TEXT_COMPONENT_STRING((char*)name);
-        UI::_DRAW_TEXT(x + 0.017f, cy + 0.007f);
+    for (int i = 0; i < currentNum; ++i) {
+        char value[16];
+        sprintf_s(value, "%s", *currentToggles[i] ? "[ON]" : "[OFF]");
+        DrawPairedMenuOption(currentOpts[i], value, x, y + h * i, w, h, i == menuIndex);
+    }
 
-        char buf[64];
-        sprintf(buf, "%s", *toggle ? "[ON]" : "[OFF]");
-        UI::SET_TEXT_FONT(0);
-        UI::SET_TEXT_SCALE(0.0f, 0.32f);
-        UI::SET_TEXT_COLOUR(*toggle ? (active ? 56 : 36) : (active ? 120 : 100), *toggle ? (active ? 240 : 220) : (active ? 160 : 100), *toggle ? (active ? 100 : 60) : (active ? 120 : 100), 255);
-        UI::_SET_TEXT_ENTRY("STRING");
-        UI::_ADD_TEXT_COMPONENT_STRING(buf);
-        UI::_DRAW_TEXT(x + w - 0.10f, cy + 0.008f);
-        };
+    ClampMenuIndex(menuIndex, currentNum);
 
-    for (int i = 0; i < currentNum; ++i)
-        drawOption(i, currentOpts[i], currentToggles[i], y + h * i, i == menuIndex);
-
-    if (IsKeyJustUp(VK_NUMPAD8) || PadPressed(DPAD_UP))
-        menuIndex = (menuIndex - 1 + currentNum) % currentNum;
-    if (IsKeyJustUp(VK_NUMPAD2) || PadPressed(DPAD_DOWN))
-        menuIndex = (menuIndex + 1) % currentNum;
+    if (IsKeyJustUp(VK_NUMPAD8) || PadPressed(DPAD_UP)) menuIndex = (menuIndex - 1 + currentNum) % currentNum;
+    if (IsKeyJustUp(VK_NUMPAD2) || PadPressed(DPAD_DOWN)) menuIndex = (menuIndex + 1) % currentNum;
     if (IsKeyJustUp(VK_NUMPAD5) || PadPressed(BTN_A)) {
         bool* togglePtr = currentToggles[menuIndex];
         *togglePtr = !(*togglePtr);
-
-        if (togglePtr == &superman) {
-            if (superman) {
-                supermanFlight = true;
-                laserEyes = true;
-                supermanImpact = true;
-            }
-            else {
-                if (menuIndex >= selfNum_Normal) {
-                    menuIndex = selfNum_Normal - 1;
-                }
-            }
+        if (togglePtr == &superman && !superman && menuIndex >= selfNum_Normal) {
+            menuIndex = selfNum_Normal - 1;
         }
     }
 }

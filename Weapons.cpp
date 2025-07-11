@@ -357,6 +357,12 @@ void HandleSoulSwapGun()
         }
     }
 }
+void Weapons_Init() {
+    infAmmo = false; explosiveAmmo = false; fireAmmo = false; explosiveMelee = false; rapidFire = false; giveAllWeapons = false;
+    forceGun = false; magnetGun = false; soulSwapGun = false;
+    forceMultiplier = 10.0f; damageMultiplier = 1.0f; magnetGripStrength = 2.0f; magnetHoldDistance = 8.0f; magnetLaunchPower = 500.0f; magnetBoostPower = 400.0f;
+}
+
 // ---- Weapons Tab Tick ----
 void Weapons_Tick() {
     Player p = PLAYER::PLAYER_ID();
@@ -383,101 +389,65 @@ void Weapons_Tick() {
     if (soulSwapGun) HandleSoulSwapGun();
 }
 
-// ---- Weapons Tab Menu ----
+int Weapons_GetNumOptions() {
+    return 15;
+}
+
+// FIX: Rewrote DrawMenu to use shared UI functions and match style
 void Weapons_DrawMenu(int& menuIndex, float x, float y, float w, float h) {
-    static const char* weapOpts[] = {
-        "Infinite Ammo", "Explosive Ammo", "Fire Ammo",
-        "Explosive Melee", "Rapid Fire", "Give All Weapons", "Force Gun", "Magnet Gun", "Soul Swap Gun"
-    };
-    bool* weapToggles[] = {
-        &infAmmo, &explosiveAmmo, &fireAmmo, &explosiveMelee,
-        &rapidFire, &giveAllWeapons, &forceGun, &magnetGun, &soulSwapGun
-    };
+    const char* weapOpts[] = { "Infinite Ammo", "Explosive Ammo", "Fire Ammo", "Explosive Melee", "Rapid Fire", "Give All Weapons", "Force Gun", "Magnet Gun", "Soul Swap Gun" };
+    bool* weapToggles[] = { &infAmmo, &explosiveAmmo, &fireAmmo, &explosiveMelee, &rapidFire, &giveAllWeapons, &forceGun, &magnetGun, &soulSwapGun };
+    int numToggles = sizeof(weapOpts) / sizeof(weapOpts[0]);
 
-    // FIX: Adjusted total menu item count (9 toggles + 6 sliders = 15)
-    int weapNum = 9 + 6;
+    const char* sliderOpts[] = { "Force Multiplier", "Damage Multiplier", "Magnet Grip", "Magnet Launch", "Magnet Boost", "Magnet Hold Distance" };
+    float* sliderVals[] = { &forceMultiplier, &damageMultiplier, &magnetGripStrength, &magnetLaunchPower, &magnetBoostPower, &magnetHoldDistance };
+    int numSliders = sizeof(sliderOpts) / sizeof(sliderOpts[0]);
+    int totalOptions = numToggles + numSliders;
 
-    auto drawOption = [&](int idx, const char* name, bool* toggle, float cy, bool slider = false, float* value = nullptr, float minv = 0, float maxv = 100, bool active = false) {
-        GRAPHICS::DRAW_RECT(
-            x + w * 0.5f, cy + h * 0.5f, w, h - 0.004f,
-            active ? 120 : 80,
-            active ? 180 : 80,
-            active ? 230 : 120,
-            active ? 255 : 220
-        );
-        UI::SET_TEXT_FONT(0);
-        UI::SET_TEXT_SCALE(0.0f, 0.36f);
-        UI::SET_TEXT_COLOUR(active ? 40 : 0, active ? 60 : 0, active ? 130 : 0, 255);
-        UI::_SET_TEXT_ENTRY("STRING");
-        UI::_ADD_TEXT_COMPONENT_STRING((char*)name);
-        UI::_DRAW_TEXT(x + 0.017f, cy + 0.007f);
+    char valueBuffer[32];
+    for (int i = 0; i < totalOptions; ++i) {
+        bool isSelected = (i == menuIndex);
+        float currentY = y + h * i;
 
-        char buf[64];
-        if (slider && value) {
-            sprintf(buf, "[%.1f]", *value);
-            UI::SET_TEXT_FONT(0);
-            UI::SET_TEXT_SCALE(0.0f, 0.31f);
-            UI::SET_TEXT_COLOUR(active ? 10 : 10, active ? 170 : 130, 60, 255);
-            UI::SET_TEXT_CENTRE(0);
-            UI::_SET_TEXT_ENTRY("STRING");
-            UI::_ADD_TEXT_COMPONENT_STRING(buf);
-            UI::_DRAW_TEXT(x + w - 0.11f, cy + 0.009f);
+        if (i < numToggles) {
+            // Draw all weapon options as standard toggles
+            sprintf_s(valueBuffer, "%s", *weapToggles[i] ? "[ON]" : "[OFF]");
+            DrawPairedMenuOption(weapOpts[i], valueBuffer, x, currentY, w, h, isSelected);
         }
-        else if (toggle) {
-            sprintf(buf, "%s", *toggle ? "[ON]" : "[OFF]");
-            UI::SET_TEXT_FONT(0);
-            UI::SET_TEXT_SCALE(0.0f, 0.32f);
-            UI::SET_TEXT_COLOUR(
-                *toggle ? (active ? 56 : 36) : (active ? 120 : 100),
-                *toggle ? (active ? 240 : 220) : (active ? 160 : 100),
-                *toggle ? (active ? 100 : 60) : (active ? 120 : 100), 255
-            );
-            UI::_SET_TEXT_ENTRY("STRING");
-            UI::_ADD_TEXT_COMPONENT_STRING(buf);
-            UI::_DRAW_TEXT(x + w - 0.10f, cy + 0.008f);
+        else {
+            // Draw the sliders
+            int sliderIndex = i - numToggles;
+            sprintf_s(valueBuffer, "< %.1f >", *sliderVals[sliderIndex]);
+            DrawPairedMenuOption(sliderOpts[sliderIndex], valueBuffer, x, currentY, w, h, isSelected);
         }
-        };
+    }
 
-    // Draw all toggles (0..8)
-    for (int i = 0; i < 9; ++i)
-        drawOption(i, weapOpts[i], weapToggles[i], y + h * i, false, nullptr, 0, 100, i == menuIndex);
+    // --- Navigation and Activation Logic (CORRECTED) ---
+    ClampMenuIndex(menuIndex, totalOptions);
+    if (IsKeyJustUp(VK_NUMPAD8) || PadPressed(DPAD_UP)) menuIndex = (menuIndex - 1 + totalOptions) % totalOptions;
+    if (IsKeyJustUp(VK_NUMPAD2) || PadPressed(DPAD_DOWN)) menuIndex = (menuIndex + 1) % totalOptions;
 
-    // Draw all sliders
-    drawOption(9, "Force Multiplier", nullptr, y + h * 9, true, &forceMultiplier, 0.0f, 100.0f, menuIndex == 9);
-    drawOption(10, "Damage Multiplier", nullptr, y + h * 10, true, &damageMultiplier, 0.0f, 100.0f, menuIndex == 10);
-    // REMOVED: Bullet Range slider drawing call was here.
-    drawOption(11, "Magnet Grip", nullptr, y + h * 11, true, &magnetGripStrength, 0.1f, 10.0f, menuIndex == 11);
-    drawOption(12, "Magnet Launch", nullptr, y + h * 12, true, &magnetLaunchPower, 10.0f, 2000.0f, menuIndex == 12);
-    drawOption(13, "Magnet Boost", nullptr, y + h * 13, true, &magnetBoostPower, 10.0f, 2000.0f, menuIndex == 13);
-    drawOption(14, "Magnet Hold Distance", nullptr, y + h * 14, true, &magnetHoldDistance, 2.0f, 20.0f, menuIndex == 14);
+    // Activation now simply toggles the boolean for ALL weapon options
+    if (IsKeyJustUp(VK_NUMPAD5) || PadPressed(BTN_A)) {
+        if (menuIndex < numToggles) {
+            *weapToggles[menuIndex] = !*weapToggles[menuIndex];
+        }
+    }
 
-    // Menu navigation
-    if (IsKeyJustUp(VK_NUMPAD8) || PadPressed(DPAD_UP))
-        menuIndex = (menuIndex - 1 + weapNum) % weapNum;
-    if (IsKeyJustUp(VK_NUMPAD2) || PadPressed(DPAD_DOWN))
-        menuIndex = (menuIndex + 1) % weapNum;
-    if ((IsKeyJustUp(VK_NUMPAD5) || PadPressed(BTN_A)) && menuIndex < 9)
-        *weapToggles[menuIndex] = !*weapToggles[menuIndex];
-
+    // --- Slider Adjustment Logic ---
     int direction = 0;
     if (IsKeyJustUp(VK_NUMPAD4) || PadPressed(DPAD_LEFT))  direction = -1;
     if (IsKeyJustUp(VK_NUMPAD6) || PadPressed(DPAD_RIGHT)) direction = 1;
 
-    if (direction) {
-        // FIX: Re-numbered the menu indices for sliders
-        if (menuIndex == 9)
-            forceMultiplier = std::max(0.0f, std::min(forceMultiplier + direction * 1.0f, 100.0f));
-        else if (menuIndex == 10)
-            damageMultiplier = std::max(0.0f, std::min(damageMultiplier + direction * 1.0f, 100.0f));
-        // REMOVED: Bullet Range slider navigation logic was here.
-        else if (menuIndex == 11)
-            magnetGripStrength = std::max(0.1f, std::min(magnetGripStrength + direction * 0.1f, 10.0f));
-        else if (menuIndex == 12)
-            magnetLaunchPower = std::max(10.0f, std::min(magnetLaunchPower + direction * 10.0f, 2000.0f));
-        else if (menuIndex == 13)
-            magnetBoostPower = std::max(10.0f, std::min(magnetBoostPower + direction * 10.0f, 2000.0f));
-        else if (menuIndex == 14)
-            magnetHoldDistance = std::max(2.0f, std::min(magnetHoldDistance + direction * 0.5f, 20.0f));
+    if (direction != 0 && menuIndex >= numToggles) {
+        int sliderIndex = menuIndex - numToggles;
+        switch (sliderIndex) {
+        case 0: forceMultiplier = std::max(0.0f, std::min(forceMultiplier + direction * 1.0f, 100.0f)); break;
+        case 1: damageMultiplier = std::max(0.0f, std::min(damageMultiplier + direction * 1.0f, 100.0f)); break;
+        case 2: magnetGripStrength = std::max(0.1f, std::min(magnetGripStrength + direction * 0.1f, 10.0f)); break;
+        case 3: magnetLaunchPower = std::max(10.0f, std::min(magnetLaunchPower + direction * 10.0f, 2000.0f)); break;
+        case 4: magnetBoostPower = std::max(10.0f, std::min(magnetBoostPower + direction * 10.0f, 2000.0f)); break;
+        case 5: magnetHoldDistance = std::max(2.0f, std::min(magnetHoldDistance + direction * 0.5f, 20.0f)); break;
+        }
     }
 }
-void Weapons_Init() { /* Nothing to init, but required for linker. */ }

@@ -3,11 +3,13 @@
 
 // State variables for the Misc tab
 extern bool slowmo, refillHPArmor, moneyCheat, hashGunActive, wantedUp, wantedDown, populateNow, noHostilePeds, noClipMode, savePlayerCoords;
-// NEW: Replaced allPedsFollowPlayer with a more detailed system
 extern bool pedsFollowEnabled;
 extern int followerCount;
 extern bool followAllPeds;
 
+// --- NEW ---
+extern bool teleportPedsToPlayer;
+extern int pedsToTeleportCount;
 extern int bulletExplosionType;
 extern const char* bulletTypeNames[];
 

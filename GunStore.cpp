@@ -154,6 +154,7 @@ void draw_gun_store_menu() {
     const float MENU_W = 0.29f;
     const float MENU_H = 0.038f;
 
+    // Display Player's Money at the top
     char moneyBuf[64];
     sprintf_s(moneyBuf, "Your Money: $%d", Money_Get());
     UI::SET_TEXT_FONT(0);
@@ -164,43 +165,25 @@ void draw_gun_store_menu() {
     UI::_DRAW_TEXT(MENU_X, MENU_Y - 0.08f);
 
     if (!inWeaponSelection) {
+        // --- Category Selection ---
         const int numOptions = g_weaponCategories.size() + 1;
+        float totalHeight = MENU_H * (numOptions + 1);
 
-        GRAPHICS::DRAW_RECT(MENU_X + MENU_W * 0.5f, MENU_Y - 0.038f + MENU_H * (numOptions + 1) * 0.5f, MENU_W, MENU_H * (numOptions + 1), 14, 17, 22, 228);
-        UI::SET_TEXT_FONT(0);
-        UI::SET_TEXT_SCALE(0.0f, 0.43f);
-        UI::SET_TEXT_COLOUR(255, 255, 220, 252);
-        UI::_SET_TEXT_ENTRY("STRING");
-        UI::_ADD_TEXT_COMPONENT_STRING("Gun Store");
-        UI::_DRAW_TEXT(MENU_X + 0.014f, MENU_Y - 0.062f);
+        GRAPHICS::DRAW_RECT(MENU_X + MENU_W * 0.5f, MENU_Y - MENU_H * 0.5f + totalHeight * 0.5f, MENU_W, totalHeight, BG_COLOR.r, BG_COLOR.g, BG_COLOR.b, BG_COLOR.a);
+        DrawMenuHeader("Gun Store", MENU_X, MENU_Y, MENU_W);
 
+        float optionY = MENU_Y + MENU_H;
         for (size_t i = 0; i < g_weaponCategories.size(); ++i) {
-            float cy = MENU_Y + MENU_H * i;
-            bool active = (i == gunCategoryIndex);
-            GRAPHICS::DRAW_RECT(MENU_X + MENU_W * 0.5f, cy + (MENU_H - 0.004f) * 0.5f, MENU_W, MENU_H - 0.004f, active ? 190 : 60, active ? 130 : 80, active ? 215 : 80, active ? 255 : 135);
-            UI::SET_TEXT_FONT(0);
-            UI::SET_TEXT_SCALE(0.0f, 0.38f);
-            UI::SET_TEXT_COLOUR(0, 0, 0, 255);
-            UI::_SET_TEXT_ENTRY("STRING");
-            UI::_ADD_TEXT_COMPONENT_STRING(const_cast<char*>(g_weaponCategories[i].name));
-            UI::_DRAW_TEXT(MENU_X + 0.017f, cy + 0.007f);
+            DrawMenuOption(g_weaponCategories[i].name, MENU_X, optionY + MENU_H * i, MENU_W, MENU_H, i == gunCategoryIndex);
         }
-        float back_cy = MENU_Y + MENU_H * g_weaponCategories.size();
-        bool back_active = (g_weaponCategories.size() == gunCategoryIndex);
-        GRAPHICS::DRAW_RECT(MENU_X + MENU_W * 0.5f, back_cy + (MENU_H - 0.004f) * 0.5f, MENU_W, MENU_H - 0.004f, back_active ? 215 : 80, back_active ? 60 : 80, back_active ? 60 : 80, 255);
-        UI::SET_TEXT_FONT(0);
-        UI::SET_TEXT_SCALE(0.0f, 0.38f);
-        UI::SET_TEXT_COLOUR(0, 0, 0, 255);
-        UI::_SET_TEXT_ENTRY("STRING");
-        UI::_ADD_TEXT_COMPONENT_STRING("Back");
-        UI::_DRAW_TEXT(MENU_X + 0.017f, back_cy + 0.007f);
+        DrawMenuOption("Back", MENU_X, optionY + MENU_H * g_weaponCategories.size(), MENU_W, MENU_H, g_weaponCategories.size() == gunCategoryIndex);
 
+        // Navigation and activation
         if (IsKeyJustUp(VK_NUMPAD8) || PadPressed(DPAD_UP)) gunCategoryIndex = (gunCategoryIndex - 1 + numOptions) % numOptions;
         if (IsKeyJustUp(VK_NUMPAD2) || PadPressed(DPAD_DOWN)) gunCategoryIndex = (gunCategoryIndex + 1) % numOptions;
         if (IsKeyJustUp(VK_NUMPAD5) || PadPressed(BTN_A)) {
             if (gunCategoryIndex == g_weaponCategories.size()) {
-                // FIXED: Replaced CAT_MAIN with its integer value 0
-                menuCategory = 0; // CAT_MAIN; 
+                menuCategory = 0; // CAT_MAIN
                 menuIndex = 6;
             }
             else {
@@ -210,54 +193,38 @@ void draw_gun_store_menu() {
         }
     }
     else {
+        // --- Weapon Selection ---
         WeaponCategory& selectedCategory = g_weaponCategories[gunCategoryIndex];
         const int numOptions = selectedCategory.weapons.size() + 1;
+        float totalHeight = MENU_H * (numOptions + 1);
 
-        GRAPHICS::DRAW_RECT(MENU_X + MENU_W * 0.5f, MENU_Y - 0.038f + MENU_H * (numOptions + 1) * 0.5f, MENU_W, MENU_H * (numOptions + 1), 14, 17, 22, 228);
-        UI::SET_TEXT_FONT(0);
-        UI::SET_TEXT_SCALE(0.0f, 0.43f);
-        UI::SET_TEXT_COLOUR(255, 255, 220, 252);
-        UI::_SET_TEXT_ENTRY("STRING");
-        UI::_ADD_TEXT_COMPONENT_STRING(const_cast<char*>(selectedCategory.name));
-        UI::_DRAW_TEXT(MENU_X + 0.014f, MENU_Y - 0.062f);
+        GRAPHICS::DRAW_RECT(MENU_X + MENU_W * 0.5f, MENU_Y - MENU_H * 0.5f + totalHeight * 0.5f, MENU_W, totalHeight, BG_COLOR.r, BG_COLOR.g, BG_COLOR.b, BG_COLOR.a);
+        DrawMenuHeader(selectedCategory.name, MENU_X, MENU_Y, MENU_W);
 
+        float optionY = MENU_Y + MENU_H;
         for (size_t i = 0; i < selectedCategory.weapons.size(); ++i) {
-            float cy = MENU_Y + MENU_H * i;
-            bool active = (i == weaponIndex);
             WeaponForSale& gun = selectedCategory.weapons[i];
             bool owned = GunStore_HasWeapon(gun.hash);
-            // FIXED: Replaced RankBar_GetRank() with RpEvents_GetLevel()
             bool unlocked = RpEvents_GetLevel() >= gun.rankRequired;
+            char label[128], value[32] = "";
 
-            GRAPHICS::DRAW_RECT(MENU_X + MENU_W * 0.5f, cy + (MENU_H - 0.004f) * 0.5f, MENU_W, MENU_H - 0.004f, active ? 190 : 60, active ? 130 : 80, active ? 215 : 80, active ? 255 : 135);
-            UI::SET_TEXT_FONT(0);
-            UI::SET_TEXT_SCALE(0.0f, 0.38f);
-            UI::SET_TEXT_COLOUR(0, 0, 0, 255);
-            UI::_SET_TEXT_ENTRY("STRING");
-
-            char weaponLabel[100];
             if (owned) {
-                sprintf_s(weaponLabel, "%s [OWNED]", gun.name);
+                sprintf_s(label, "%s", gun.name);
+                sprintf_s(value, "[OWNED]");
             }
             else if (!unlocked) {
-                sprintf_s(weaponLabel, "%s [LOCKED - RANK %d]", gun.name, gun.rankRequired);
+                sprintf_s(label, "%s", gun.name);
+                sprintf_s(value, "[LOCKED - LVL %d]", gun.rankRequired);
             }
             else {
-                sprintf_s(weaponLabel, "%s - $%d", gun.name, gun.price);
+                sprintf_s(label, "%s", gun.name);
+                sprintf_s(value, "$%d", gun.price);
             }
-            UI::_ADD_TEXT_COMPONENT_STRING(weaponLabel);
-            UI::_DRAW_TEXT(MENU_X + 0.017f, cy + 0.007f);
+            DrawPairedMenuOption(label, value, MENU_X, optionY + MENU_H * i, MENU_W, MENU_H, i == weaponIndex);
         }
-        float back_cy = MENU_Y + MENU_H * selectedCategory.weapons.size();
-        bool back_active = (selectedCategory.weapons.size() == weaponIndex);
-        GRAPHICS::DRAW_RECT(MENU_X + MENU_W * 0.5f, back_cy + (MENU_H - 0.004f) * 0.5f, MENU_W, MENU_H - 0.004f, back_active ? 215 : 80, back_active ? 60 : 80, back_active ? 60 : 80, 255);
-        UI::SET_TEXT_FONT(0);
-        UI::SET_TEXT_SCALE(0.0f, 0.38f);
-        UI::SET_TEXT_COLOUR(0, 0, 0, 255);
-        UI::_SET_TEXT_ENTRY("STRING");
-        UI::_ADD_TEXT_COMPONENT_STRING("Back");
-        UI::_DRAW_TEXT(MENU_X + 0.017f, back_cy + 0.007f);
+        DrawMenuOption("Back", MENU_X, optionY + MENU_H * selectedCategory.weapons.size(), MENU_W, MENU_H, selectedCategory.weapons.size() == weaponIndex);
 
+        // Navigation and activation
         if (IsKeyJustUp(VK_NUMPAD8) || PadPressed(DPAD_UP)) weaponIndex = (weaponIndex - 1 + numOptions) % numOptions;
         if (IsKeyJustUp(VK_NUMPAD2) || PadPressed(DPAD_DOWN)) weaponIndex = (weaponIndex + 1) % numOptions;
         if (IsKeyJustUp(VK_NUMPAD5) || PadPressed(BTN_A)) {
@@ -267,9 +234,8 @@ void draw_gun_store_menu() {
             else {
                 WeaponForSale& gun = selectedCategory.weapons[weaponIndex];
                 if (GunStore_HasWeapon(gun.hash)) {
-                    // Already owned
+                    // Already owned, do nothing
                 }
-                // FIXED: Replaced RankBar_GetRank() with RpEvents_GetLevel()
                 else if (RpEvents_GetLevel() < gun.rankRequired) {
                     UI::_SET_NOTIFICATION_TEXT_ENTRY("STRING");
                     UI::_ADD_TEXT_COMPONENT_STRING("~r~Rank not high enough!");

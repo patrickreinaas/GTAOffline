@@ -7,6 +7,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="CarExport.cpp" />
     <ClCompile Include="CarShop.cpp" />
     <ClCompile Include="CharacterCreator.cpp" />
     <ClCompile Include="Cheats.cpp" />
@@ -22,6 +23,7 @@
     <ClCompile Include="RpEvents.cpp" />
     <ClCompile Include="script.cpp" />
     <ClCompile Include="Self.cpp" />
+    <ClCompile Include="Source.cpp" />
     <ClCompile Include="Vehicle.cpp" />
     <ClCompile Include="Weapons.cpp" />
   </ItemGroup>
@@ -36,6 +38,7 @@
     <ClInclude Include="Credits.h" />
     <ClInclude Include="Garage.h" />
     <ClInclude Include="GunStore.h" />
+    <ClInclude Include="Header.h" />
     <ClInclude Include="input.h" />
     <ClInclude Include="keyboard.h" />
     <ClInclude Include="Misc.h" />

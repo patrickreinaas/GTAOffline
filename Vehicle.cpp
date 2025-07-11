@@ -184,46 +184,67 @@ void VehicleMenu::DrawMenu(int& menuIndex, int& menuCategory)
     const float x = 0.02f, y = 0.13f, w = 0.29f, h = 0.038f;
     int numOptions = VEHOPT_COUNT;
 
-    GRAPHICS::DRAW_RECT(x + w * 0.5f, y - 0.038f + h * (numOptions / 2.0f), w, h * numOptions, 34, 55, 85, 220);
-    UI::SET_TEXT_FONT(0);
-    UI::SET_TEXT_SCALE(0.0f, 0.40f);
-    UI::SET_TEXT_COLOUR(255, 255, 220, 252);
+    // Draw Background & Header
+    float totalHeight = h * (numOptions + 1);
+    GRAPHICS::DRAW_RECT(x + w * 0.5f, y - h * 0.5f + totalHeight * 0.5f, w, totalHeight, BG_COLOR.r, BG_COLOR.g, BG_COLOR.b, BG_COLOR.a);
+    GRAPHICS::DRAW_RECT(x + w * 0.5f, y + h * 0.5f, w, h, HEADER_COLOR.r, HEADER_COLOR.g, HEADER_COLOR.b, HEADER_COLOR.a);
+
+    UI::SET_TEXT_FONT(FONT);
+    UI::SET_TEXT_SCALE(0.0f, 0.43f);
+    UI::SET_TEXT_COLOUR(HEADER_TEXT_COLOR.r, HEADER_TEXT_COLOR.g, HEADER_TEXT_COLOR.b, HEADER_TEXT_COLOR.a);
+    UI::SET_TEXT_CENTRE(true);
     UI::_SET_TEXT_ENTRY("STRING");
     UI::_ADD_TEXT_COMPONENT_STRING((char*)"Vehicle Mods");
-    UI::_DRAW_TEXT(x + 0.012f, y - 0.037f);
+    UI::_DRAW_TEXT(x + w * 0.5f, y + 0.005f);
+    UI::SET_TEXT_CENTRE(false);
 
+    // Draw Options
+    float optionY = y + h;
+    char valueBuffer[64];
+
+    for (int i = 0; i < numOptions; ++i)
+    {
+        float currentY = optionY + h * i;
+        bool isSelected = (i == menuIndex);
+        const char* label = VEHOPT_LABELS[i];
+
+        switch (i) {
+        case VEHOPT_GODMODE: case VEHOPT_DRIVEDEAD: case VEHOPT_FLY: case VEHOPT_AUTOREPAIR:
+        case VEHOPT_AUTOREPAIR_NEARBY: case VEHOPT_REMOTECONTROL: case VEHOPT_REMOTECONTROL_ALL: {
+            bool* pBool = nullptr;
+            if (i == VEHOPT_GODMODE) pBool = &godMode; else if (i == VEHOPT_DRIVEDEAD) pBool = &driveDeadCars;
+            else if (i == VEHOPT_FLY) pBool = &vehicleFly; else if (i == VEHOPT_AUTOREPAIR) pBool = &autoRepair;
+            else if (i == VEHOPT_AUTOREPAIR_NEARBY) pBool = &autoRepairNearby; else if (i == VEHOPT_REMOTECONTROL) pBool = &remoteControlEnabled;
+            else if (i == VEHOPT_REMOTECONTROL_ALL) pBool = &remoteControlAllEnabled;
+            sprintf_s(valueBuffer, "%s", *pBool ? "[ON]" : "[OFF]");
+            DrawPairedMenuOption(label, valueBuffer, x, currentY, w, h, isSelected);
+            break;
+        }
+        case VEHOPT_IMPACT_FORCE: case VEHOPT_TRACTION: case VEHOPT_ENGINE_POWER:
+        case VEHOPT_TORQUE: case VEHOPT_GRAVITY: case VEHOPT_DENSITY: {
+            float* pFloat = nullptr;
+            if (i == VEHOPT_IMPACT_FORCE) pFloat = &impactForce; else if (i == VEHOPT_TRACTION) pFloat = &customTraction;
+            else if (i == VEHOPT_ENGINE_POWER) pFloat = &customSpeed; else if (i == VEHOPT_TORQUE) pFloat = &customTorque;
+            else if (i == VEHOPT_GRAVITY) pFloat = &customGravity; else if (i == VEHOPT_DENSITY) pFloat = &vehicleDensity;
+            sprintf_s(valueBuffer, "< %.2f >", *pFloat);
+            DrawPairedMenuOption(label, valueBuffer, x, currentY, w, h, isSelected);
+            break;
+        }
+        case VEHOPT_REPAIR: case VEHOPT_BACK:
+            DrawMenuOption(label, x, currentY, w, h, isSelected);
+            break;
+        }
+    }
+
+    // --- Navigation & Activation Logic ---
     static int navDelay = 0;
     if (navDelay > 0) navDelay--;
     bool up = IsKeyJustUp(VK_NUMPAD8) || PadPressed(DPAD_UP);
     bool down = IsKeyJustUp(VK_NUMPAD2) || PadPressed(DPAD_DOWN);
     if ((IsKeyDown(VK_NUMPAD8) || PadHeld(DPAD_UP)) && navDelay == 0) { up = true; navDelay = 8; }
     if ((IsKeyDown(VK_NUMPAD2) || PadHeld(DPAD_DOWN)) && navDelay == 0) { down = true; navDelay = 8; }
-
     if (up)    menuIndex = (menuIndex - 1 + numOptions) % numOptions;
     if (down)  menuIndex = (menuIndex + 1) % numOptions;
-
-    for (int i = 0; i < numOptions; ++i)
-    {
-        float cy = y + h * i;
-        bool active = (i == menuIndex);
-        switch (i) {
-        case VEHOPT_GODMODE:            DrawToggleOption(x, cy, w, h, VEHOPT_LABELS[i], godMode, active); break;
-        case VEHOPT_DRIVEDEAD:          DrawToggleOption(x, cy, w, h, VEHOPT_LABELS[i], driveDeadCars, active); break;
-        case VEHOPT_FLY:                DrawToggleOption(x, cy, w, h, VEHOPT_LABELS[i], vehicleFly, active); break;
-        case VEHOPT_AUTOREPAIR:         DrawToggleOption(x, cy, w, h, VEHOPT_LABELS[i], autoRepair, active); break;
-        case VEHOPT_AUTOREPAIR_NEARBY:  DrawToggleOption(x, cy, w, h, VEHOPT_LABELS[i], autoRepairNearby, active); break;
-        case VEHOPT_IMPACT_FORCE:       DrawSliderOption(x, cy, w, h, VEHOPT_LABELS[i], impactForce, active); break;
-        case VEHOPT_TRACTION:           DrawSliderOption(x, cy, w, h, VEHOPT_LABELS[i], customTraction, active); break;
-        case VEHOPT_ENGINE_POWER:       DrawSliderOption(x, cy, w, h, VEHOPT_LABELS[i], customSpeed, active); break;
-        case VEHOPT_TORQUE:             DrawSliderOption(x, cy, w, h, VEHOPT_LABELS[i], customTorque, active); break;
-        case VEHOPT_GRAVITY:            DrawSliderOption(x, cy, w, h, VEHOPT_LABELS[i], customGravity, active); break;
-        case VEHOPT_DENSITY:            DrawSliderOption(x, cy, w, h, VEHOPT_LABELS[i], vehicleDensity, active); break;
-        case VEHOPT_REMOTECONTROL:      DrawToggleOption(x, cy, w, h, VEHOPT_LABELS[i], remoteControlEnabled, active); break;
-        case VEHOPT_REMOTECONTROL_ALL:  DrawToggleOption(x, cy, w, h, VEHOPT_LABELS[i], remoteControlAllEnabled, active); break;
-        case VEHOPT_REPAIR:             DrawActionOption(x, cy, w, h, VEHOPT_LABELS[i], active); break;
-        case VEHOPT_BACK:               DrawActionOption(x, cy, w, h, VEHOPT_LABELS[i], active); break;
-        }
-    }
 
     static int lrDelay = 0;
     if (lrDelay > 0) lrDelay--;

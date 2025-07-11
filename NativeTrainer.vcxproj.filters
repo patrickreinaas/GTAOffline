@@ -18,6 +18,8 @@
     <ClCompile Include="Garage.cpp" />
     <ClCompile Include="GunStore.cpp" />
     <ClCompile Include="Credits.cpp" />
+    <ClCompile Include="Source.cpp" />
+    <ClCompile Include="CarExport.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="script.h" />
@@ -48,6 +50,7 @@
     <ClInclude Include="Garage.h" />
     <ClInclude Include="GunStore.h" />
     <ClInclude Include="Credits.h" />
+    <ClInclude Include="Header.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="include">

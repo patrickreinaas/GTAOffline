@@ -10,7 +10,8 @@
 #include "CarShop.h"
 #include "Garage.h"
 #include "GunStore.h"
-#include "Credits.h" // <-- ADDED
+#include "Credits.h" // Ensure Credits.h is included for Credits_Tick()
+#include "CarExport.h"
 #include <windows.h>
 #include <ctime>
 #include <cstdio>
@@ -23,81 +24,136 @@
 
 #pragma warning(disable : 4244 4305)
 
-// --- FIX: Define constants for our save files to keep things clean ---
+// --- File Constants ---
 const char* characterFile = "GTAOfflineChar.ini";
 const char* playerStatsFile = "GTAOfflinePlayerStats.ini";
 const char* xpFile = "GTAOfflineXP.ini";
 
-
-// Menu categories
+// --- Menu State ---
 enum Category {
-    CAT_MAIN = 0,
-    CAT_CHARACTER,
-    CAT_CHEATS,
-    CAT_VEHICLE,
-    CAT_SAVELOAD,
-    CAT_CAR_SHOP,
-    CAT_GARAGE,
-    CAT_GUN_STORE,
-    CAT_CREDITS // <-- ADDED
+    CAT_MAIN = 0, CAT_CHARACTER, CAT_CHEATS, CAT_VEHICLE,
+    CAT_SAVELOAD, CAT_CAR_SHOP, CAT_GARAGE, CAT_GUN_STORE, CAT_CREDITS
 };
-
 int menuCategory = CAT_MAIN;
 int menuIndex = 0;
 bool menuOpen = false;
-
-const float MENU_X = 0.02f, MENU_Y = 0.13f, MENU_W = 0.29f, MENU_H = 0.038f;
-
 int inputDelayFrames = 0;
 
-// NEW: Variables for spawn protection and welcome messages
+// --- UI Constants ---
+const float MENU_X = 0.02f;
+const float MENU_Y = 0.13f; // This is now the Y coordinate for the TOP of the menu block
+const float MENU_W = 0.29f;
+const float MENU_H = 0.038f; // Height of a single option/header row
+
+// --- UI Color Palette Definition ---
+const int FONT = 0;
+const RGBA BG_COLOR = { 20, 20, 20, 200 };
+const RGBA HEADER_COLOR = { 30, 144, 255, 220 };
+const RGBA OPTION_COLOR = { 40, 40, 40, 200 };
+const RGBA SELECTED_COLOR = { 255, 255, 255, 220 };
+const RGBA TEXT_COLOR = { 255, 255, 255, 255 };
+const RGBA SELECTED_TEXT_COLOR = { 0, 0, 0, 255 };
+const RGBA HEADER_TEXT_COLOR = { 255, 255, 255, 255 };
+const RGBA TAB_BG_COLOR = { 40, 40, 40, 200 };
+const RGBA SELECTED_TAB_COLOR = { 50, 160, 255, 220 };
+
+
+// --- Spawn State ---
 static bool spawnProtectionActive = true;
 static DWORD spawnTime = 0;
 static bool welcomeMessagesShown = false;
-
+static bool isCustomCharacterActive = true; // Track if the custom character is currently applied
 
 // Forward declarations
 void draw_car_shop_menu();
 void draw_garage_menu();
 void draw_gun_store_menu();
-void draw_credits_menu(); // <-- ADDED
-void LoadGameData(); // Declaration for our new loading function
+void draw_credits_menu();
+void LoadGameData();
 
-// Clamp menu index for safety
-inline void ClampMenuIndex(int& idx, int max) {
-    if (idx < 0) idx = 0;
-    if (idx >= max) idx = max - 1;
+
+// --- Drawing Helper Function Definitions ---
+// Restored DrawMenuHeader function
+void DrawMenuHeader(const char* text, float x, float y, float w) {
+    // This function now draws only the text, the background is handled by the caller
+    UI::SET_TEXT_FONT(FONT);
+    UI::SET_TEXT_SCALE(0.0f, 0.43f);
+    UI::SET_TEXT_COLOUR(HEADER_TEXT_COLOR.r, HEADER_TEXT_COLOR.g, HEADER_TEXT_COLOR.b, HEADER_TEXT_COLOR.a);
+    UI::SET_TEXT_CENTRE(true);
+    UI::_SET_TEXT_ENTRY("STRING");
+    UI::_ADD_TEXT_COMPONENT_STRING(const_cast<char*>(text));
+    UI::_DRAW_TEXT(x + w * 0.5f, y + 0.007f); // Position text relative to the top of its row
+}
+
+void DrawMenuOption(const char* text, float x, float y, float w, float h, bool selected) {
+    GRAPHICS::DRAW_RECT(x + w * 0.5f, y + (h - 0.004f) * 0.5f, w, h - 0.004f,
+        selected ? SELECTED_COLOR.r : OPTION_COLOR.r,
+        selected ? SELECTED_COLOR.g : OPTION_COLOR.g,
+        selected ? SELECTED_COLOR.b : OPTION_COLOR.b,
+        selected ? SELECTED_COLOR.a : OPTION_COLOR.a);
+    UI::SET_TEXT_FONT(FONT);
+    UI::SET_TEXT_SCALE(0.0f, 0.38f);
+    UI::SET_TEXT_COLOUR(
+        selected ? SELECTED_TEXT_COLOR.r : TEXT_COLOR.r,
+        selected ? SELECTED_TEXT_COLOR.g : TEXT_COLOR.g,
+        selected ? SELECTED_TEXT_COLOR.b : TEXT_COLOR.b,
+        selected ? SELECTED_TEXT_COLOR.a : TEXT_COLOR.a);
+    UI::SET_TEXT_CENTRE(false);
+    UI::_SET_TEXT_ENTRY("STRING");
+    UI::_ADD_TEXT_COMPONENT_STRING(const_cast<char*>(text));
+    UI::_DRAW_TEXT(x + 0.01f, y + 0.007f);
+}
+
+void DrawPairedMenuOption(const char* label, const char* value, float x, float y, float w, float h, bool selected) {
+    DrawMenuOption(label, x, y, w, h, selected);
+
+    UI::SET_TEXT_FONT(FONT);
+    UI::SET_TEXT_SCALE(0.0f, 0.38f);
+    UI::SET_TEXT_COLOUR(
+        selected ? SELECTED_TEXT_COLOR.r : TEXT_COLOR.r,
+        selected ? SELECTED_TEXT_COLOR.g : TEXT_COLOR.g,
+        selected ? SELECTED_TEXT_COLOR.b : TEXT_COLOR.b,
+        selected ? SELECTED_TEXT_COLOR.a : TEXT_COLOR.a);
+    UI::SET_TEXT_RIGHT_JUSTIFY(true);
+    UI::SET_TEXT_WRAP(0.0f, x + w - 0.01f);
+    UI::_SET_TEXT_ENTRY("STRING");
+    UI::_ADD_TEXT_COMPONENT_STRING(const_cast<char*>(value));
+    UI::_DRAW_TEXT(x, y + 0.007f);
+    UI::SET_TEXT_RIGHT_JUSTIFY(false);
 }
 
 void draw_main_menu() {
-    const int numOptions = 9; // <-- CORRECTED
+    const int numOptions = 9;
     const char* labels[numOptions] = {
         "Character Creator", "Cheats", "Vehicle", "Save/Load",
-        "Car Shop", "Garage", "Gun Store", "Credits", "Close Menu" // <-- CORRECTED
+        "Car Shop", "Garage", "Gun Store", "Credits", "Close Menu"
     };
 
     float x = MENU_X, y = MENU_Y, w = MENU_W, h = MENU_H;
-    GRAPHICS::DRAW_RECT(x + w * 0.5f, y - 0.038f + h * (numOptions + 1) * 0.5f, w, h * (numOptions + 1), 14, 17, 22, 228);
-    GRAPHICS::DRAW_RECT(x + w * 0.5f, y - 0.072f + 0.019f, w, 0.038f, 27, 31, 36, 232);
 
-    UI::SET_TEXT_FONT(0);
-    UI::SET_TEXT_SCALE(0.0f, 0.43f);
-    UI::SET_TEXT_COLOUR(255, 255, 220, 252);
-    UI::_SET_TEXT_ENTRY("STRING");
-    UI::_ADD_TEXT_COMPONENT_STRING(const_cast<char*>("GTA OFFLINE"));
-    UI::_DRAW_TEXT(x + 0.014f, y - 0.062f);
+    // Calculate total height including header
+    float headerHeight = MENU_H; // Height of the header bar
+    float optionsTotalHeight = h * numOptions; // Total height of all options
+    float totalMenuHeight = headerHeight + optionsTotalHeight;
 
+    // Calculate the center Y for the entire menu block (header + options)
+    // The top of the menu is MENU_Y. The center of the entire block will be MENU_Y + (totalMenuHeight / 2.0f)
+    float menuBlockCenterY = MENU_Y + (totalMenuHeight / 2.0f);
+
+    // Draw ONE unified background for the entire menu (header + options)
+    GRAPHICS::DRAW_RECT(x + w * 0.5f, menuBlockCenterY, w, totalMenuHeight, BG_COLOR.r, BG_COLOR.g, BG_COLOR.b, BG_COLOR.a);
+
+    // Draw the header background (blue part)
+    float headerBgCenterY = MENU_Y + (headerHeight * 0.5f); // Center Y of the header bar
+    GRAPHICS::DRAW_RECT(x + w * 0.5f, headerBgCenterY, w, headerHeight, HEADER_COLOR.r, HEADER_COLOR.g, HEADER_COLOR.b, HEADER_COLOR.a);
+
+    // Draw the header text using the shared function
+    DrawMenuHeader("GTA OFFLINE", x, MENU_Y, w); // Pass MENU_Y as the top of the header row
+
+    // Draw menu options, starting below the header
+    float optionsStartY = MENU_Y + headerHeight;
     for (int i = 0; i < numOptions; ++i) {
-        float cy = y + h * i;
-        bool active = (i == menuIndex);
-        GRAPHICS::DRAW_RECT(x + w * 0.5f, cy + (h - 0.004f) * 0.5f, w, h - 0.004f,
-            active ? 190 : 60, active ? 130 : 80, active ? 215 : 80, active ? 255 : 135);
-        UI::SET_TEXT_FONT(0);
-        UI::SET_TEXT_SCALE(0.0f, 0.38f);
-        UI::SET_TEXT_COLOUR(0, 0, 0, 255);
-        UI::_SET_TEXT_ENTRY("STRING");
-        UI::_ADD_TEXT_COMPONENT_STRING(const_cast<char*>(labels[i]));
-        UI::_DRAW_TEXT(x + 0.017f, cy + 0.007f);
+        DrawMenuOption(labels[i], x, optionsStartY + h * i, w, h, i == menuIndex);
     }
 
     ClampMenuIndex(menuIndex, numOptions);
@@ -121,8 +177,8 @@ void draw_main_menu() {
         case 4: menuCategory = CAT_CAR_SHOP;  menuIndex = 0; inputDelayFrames = 10; break;
         case 5: menuCategory = CAT_GARAGE;    menuIndex = 0; inputDelayFrames = 10; break;
         case 6: menuCategory = CAT_GUN_STORE; menuIndex = 0; inputDelayFrames = 10; break;
-        case 7: menuCategory = CAT_CREDITS;   menuIndex = 0; inputDelayFrames = 10; break; // <-- CORRECTED
-        case 8: menuOpen = false;             menuIndex = 0; inputDelayFrames = 10; break; // <-- CORRECTED
+        case 7: menuCategory = CAT_CREDITS;   menuIndex = 0; inputDelayFrames = 10; break;
+        case 8: menuOpen = false;             menuIndex = 0; inputDelayFrames = 10; break;
         }
     }
     prevA = currA;
@@ -135,27 +191,27 @@ void draw_saveload_menu() {
     const char* labels[numOptions] = { "Save Game", "Load Game", "Back" };
 
     float x = MENU_X, y = MENU_Y, w = MENU_W, h = MENU_H;
-    GRAPHICS::DRAW_RECT(x + w * 0.5f, y + h * (numOptions / 2.0f) + (h / 2.0f), w, h * (numOptions + 1), 22, 31, 31, 230);
+    // Calculate total height including header
+    float headerHeight = MENU_H; // Height of the header bar
+    float optionsTotalHeight = h * numOptions; // Total height of all options
+    float totalMenuHeight = headerHeight + optionsTotalHeight;
 
+    // Calculate the center Y for the entire menu block (header + options)
+    float menuBlockCenterY = MENU_Y + (totalMenuHeight / 2.0f);
 
-    UI::SET_TEXT_FONT(0);
-    UI::SET_TEXT_SCALE(0.0f, 0.40f);
-    UI::SET_TEXT_COLOUR(255, 255, 220, 252);
-    UI::_SET_TEXT_ENTRY("STRING");
-    UI::_ADD_TEXT_COMPONENT_STRING(const_cast<char*>("Save/Load"));
-    UI::_DRAW_TEXT(x + 0.012f, y - 0.037f);
+    GRAPHICS::DRAW_RECT(x + w * 0.5f, menuBlockCenterY, w, totalMenuHeight, BG_COLOR.r, BG_COLOR.g, BG_COLOR.b, BG_COLOR.a);
 
+    // Draw the header background (blue part)
+    float headerBgCenterY = MENU_Y + (headerHeight * 0.5f); // Center Y of the header bar
+    GRAPHICS::DRAW_RECT(x + w * 0.5f, headerBgCenterY, w, headerHeight, HEADER_COLOR.r, HEADER_COLOR.g, HEADER_COLOR.b, HEADER_COLOR.a);
+
+    // Draw the header text using the shared function
+    DrawMenuHeader("SAVE / LOAD", x, MENU_Y, w); // Pass MENU_Y as the top of the header row
+
+    // Draw menu options, starting below the header
+    float optionsStartY = MENU_Y + headerHeight;
     for (int i = 0; i < numOptions; ++i) {
-        float cy = y + h * i;
-        bool active = (i == saveloadMenuIndex);
-        GRAPHICS::DRAW_RECT(x + w * 0.5f, cy + (h - 0.004f) * 0.5f, w, h - 0.004f,
-            active ? 140 : 60, active ? 205 : 80, active ? 215 : 80, active ? 255 : 135);
-        UI::SET_TEXT_FONT(0);
-        UI::SET_TEXT_SCALE(0.0f, 0.36f);
-        UI::SET_TEXT_COLOUR(0, 0, 0, 255);
-        UI::_SET_TEXT_ENTRY("STRING");
-        UI::_ADD_TEXT_COMPONENT_STRING(const_cast<char*>(labels[i]));
-        UI::_DRAW_TEXT(x + 0.017f, cy + 0.007f);
+        DrawMenuOption(labels[i], x, optionsStartY + h * i, w, h, i == saveloadMenuIndex);
     }
 
     ClampMenuIndex(saveloadMenuIndex, numOptions);
@@ -172,26 +228,19 @@ void draw_saveload_menu() {
     bool currA = PadPressed(BTN_A);
     if ((IsKeyJustUp(VK_NUMPAD5) || (currA && !prevA))) {
         if (saveloadMenuIndex == 0) {
-            // --- FIX: SAVING LOGIC ---
-            // We now save stats (Money, Rank) to a separate file to prevent overwriting.
-            // Character appearance is saved to its own file.
             CharacterCreator_Save(characterFile);
             Money_Save(playerStatsFile);
             RankBar_Save(playerStatsFile);
             RpEvents_Save(xpFile);
             GunStore_Save();
 
-            // Notify player
             UI::_SET_NOTIFICATION_TEXT_ENTRY("STRING");
             UI::_ADD_TEXT_COMPONENT_STRING("Game Saved.");
             UI::_DRAW_NOTIFICATION(false, true);
         }
         else if (saveloadMenuIndex == 1) {
-            // --- FIX: LOADING LOGIC ---
-            // Use the new centralized loading function.
             LoadGameData();
 
-            // Notify player
             UI::_SET_NOTIFICATION_TEXT_ENTRY("STRING");
             UI::_ADD_TEXT_COMPONENT_STRING("Game Loaded.");
             UI::_DRAW_NOTIFICATION(false, true);
@@ -205,40 +254,26 @@ void draw_saveload_menu() {
 
 void LoadGameData()
 {
-    // --- FIX: MIGRATION-FRIENDLY LOADING SEQUENCE ---
-    // This function will now handle loading all game data correctly,
-    // ensuring that data from older save files is not lost.
-
-    // 1. Load data from the old, combined character file first.
-    // This loads the last-known money and rank into memory. If the user
-    // has never saved with this new script version, this is the data we want.
     CharacterCreator_Load(characterFile);
     RankBar_Load(characterFile);
     Money_Load(characterFile);
     WAIT(100);
 
-    // 2. Now, attempt to load from the NEW, separated player stats file.
-    // If this file exists, it means the user has saved with the new system,
-    // and this data is more current. It will safely overwrite the old data
-    // we just loaded into memory. If it doesn't exist, nothing happens.
     RankBar_Load(playerStatsFile);
     Money_Load(playerStatsFile);
     WAIT(100);
 
-    // 3. Load other data from their specific files.
     RpEvents_Load(xpFile);
     GunStore_Load();
     WAIT(100);
 
-    // 4. Re-apply the character model after a short delay.
-    // This helps ensure the appearance "sticks" as the game can sometimes reset it on load.
     CharacterCreator_Apply();
+    isCustomCharacterActive = true; // Mark custom character as active after loading
 }
 
 
 void SkipIntroAndLoadCharacter()
 {
-    // Start the timer for spawn protection
     spawnTime = GetTickCount64();
 
     CAM::DO_SCREEN_FADE_OUT(0);
@@ -259,10 +294,8 @@ void SkipIntroAndLoadCharacter()
 
     CAM::DO_SCREEN_FADE_IN(800);
 
-    // Wait a second for the game world to settle after fade-in
     WAIT(1000);
 
-    // Use our new centralized loading function
     LoadGameData();
 }
 
@@ -275,7 +308,8 @@ void ScriptMain() {
     CarShop_Init();
     Garage_Init();
     GunStore_Init();
-    Credits_Init(); // <-- ADDED
+    Credits_Init(); // Initialize Credits module
+    CarExport_Init();
 
     SkipIntroAndLoadCharacter();
 
@@ -289,28 +323,57 @@ void ScriptMain() {
     {
         PollPad();
 
-        // FIXED: Handle spawn protection
+        Player player = PLAYER::PLAYER_ID();
+        Ped playerPed = PLAYER::PLAYER_PED_ID();
+
+        // --- Custom Character Respawn Logic ---
+        if (PLAYER::IS_PLAYER_DEAD(player)) {
+            if (isCustomCharacterActive) {
+                // If custom character is active and player dies, switch to a default model for respawn
+                isCustomCharacterActive = false; // Temporarily mark as not custom
+                PLAYER::SET_PLAYER_MODEL(player, GAMEPLAY::GET_HASH_KEY("player_g")); // Switch to a generic ped model for stable respawn
+
+                // Ensure a clean fade and respawn
+                GAMEPLAY::SET_FADE_OUT_AFTER_DEATH(false); // Don't fade out again if already dead
+                GAMEPLAY::SET_FADE_IN_AFTER_DEATH_ARREST(true); // Ensure fade in after respawn
+
+                // Force respawn and clear wanted level
+                PLAYER::SET_PLAYER_CONTROL(player, true, 0);
+                PLAYER::SET_PLAYER_WANTED_LEVEL(player, 0, false);
+                PLAYER::SET_PLAYER_WANTED_LEVEL_NOW(player, true);
+
+                // Wait for respawn to complete
+                while (!PLAYER::IS_PLAYER_PLAYING(player)) {
+                    WAIT(0);
+                }
+
+                // After respawn, re-apply the custom character
+                CharacterCreator_Apply();
+                isCustomCharacterActive = true; // Mark custom character as active again
+                spawnProtectionActive = true; // Re-enable spawn protection after respawn
+                spawnTime = GetTickCount64(); // Reset spawn time for protection
+            }
+        }
+        // --- End Custom Character Respawn Logic ---
+
+
         if (spawnProtectionActive) {
-            Ped playerPed = PLAYER::PLAYER_PED_ID();
             ENTITY::SET_ENTITY_INVINCIBLE(playerPed, true);
-            // Check if 15 seconds have passed
             if (GetTickCount64() - spawnTime > 15000) {
                 ENTITY::SET_ENTITY_INVINCIBLE(playerPed, false);
                 spawnProtectionActive = false;
-                // Notify the player
                 UI::_SET_NOTIFICATION_TEXT_ENTRY("STRING");
                 UI::_ADD_TEXT_COMPONENT_STRING("Spawn protection has worn off.");
                 UI::_DRAW_NOTIFICATION(false, true);
             }
         }
 
-        // FIXED: Show welcome messages once, now with clear text.
-        if (!welcomeMessagesShown && GetTickCount64() - spawnTime > 2000) { // Show after 2 seconds
+        if (!welcomeMessagesShown && GetTickCount64() - spawnTime > 2000) {
             UI::_SET_NOTIFICATION_TEXT_ENTRY("STRING");
             UI::_ADD_TEXT_COMPONENT_STRING("~b~GTA Offline by CreamyPlaytime Loaded");
             UI::_DRAW_NOTIFICATION(false, true);
 
-            WAIT(4000); // Wait 4 seconds before showing the next one
+            WAIT(4000);
 
             UI::_SET_NOTIFICATION_TEXT_ENTRY("STRING");
             UI::_ADD_TEXT_COMPONENT_STRING("Press F4 (Keyboard) or RB + A (Controller) to open the menu.");
@@ -319,10 +382,6 @@ void ScriptMain() {
             welcomeMessagesShown = true;
         }
 
-
-        Player player = PLAYER::PLAYER_ID();
-        Ped playerPed = PLAYER::PLAYER_PED_ID();
-
         Cheats_Tick();
         RpEvents_Tick();
         RankBar_Tick();
@@ -330,6 +389,7 @@ void ScriptMain() {
         CarShop_Tick();
         Garage_Tick();
         GunStore_Tick();
+        CarExport_Tick();
 
         g_vehicleMenu.Tick();
 
@@ -388,10 +448,13 @@ void ScriptMain() {
             case CAT_GUN_STORE:
                 draw_gun_store_menu();
                 break;
-            case CAT_CREDITS: // <-- CORRECTED
+            case CAT_CREDITS:
                 draw_credits_menu();
                 break;
             }
+        }
+        else {
+            CarExport_Draw();
         }
 
         RankBar_DrawBar();

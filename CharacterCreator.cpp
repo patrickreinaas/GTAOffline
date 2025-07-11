@@ -11,21 +11,21 @@
 #define SLOT_LEGS       4
 #define SLOT_SHOES      6
 
-
-// Static data
+// --- GTA ONLINE PARENT DATA ---
 struct ParentEntry { const char* name; int index; };
 static const ParentEntry dads[] = {
-    {"Benjamin",0},{"Daniel",1},{"Joshua",2},{"Noah",3},{"Andrew",4},{"Juan",5},
-    {"Alex",6},{"Isaac",7},{"Evan",8},{"Ethan",9},{"Vincent",10},{"Angel",11},
-    {"Diego",12},{"Adrian",13},{"Gabriel",14},{"Michael",15},{"Santiago",16},
-    {"Kevin",17},{"Louis",18},{"Samuel",19},{"Anthony",20},{"Hannah",42},
-    {"Audrey",43},{"Jasmine",44},{"Giselle",45},{"Amelia",46}
+    {"Benjamin", 0}, {"Daniel", 1}, {"Joshua", 2}, {"Noah", 3}, {"Andrew", 4},
+    {"Juan", 5}, {"Alex", 6}, {"Isaac", 7}, {"Evan", 8}, {"Ethan", 9},
+    {"Vincent", 10}, {"Angel", 11}, {"Diego", 12}, {"Adrian", 13}, {"Gabriel", 14},
+    {"Michael", 15}, {"Santiago", 16}, {"Kevin", 17}, {"Louis", 18}, {"Samuel", 19},
+    {"Anthony", 20}, {"John", 42}, {"Niko", 43}, {"Claude", 44}
 };
 static const ParentEntry moms[] = {
-    {"Hannah",21},{"Audrey",22},{"Jasmine",23},{"Giselle",24},{"Amelia",25},
-    {"Isabella",26},{"Zoe",27},{"Ava",28},{"Camila",29},{"Violet",30},
-    {"Sophia",31},{"Evelyn",32},{"Nicole",33},{"Ashley",34},{"Grace",35},
-    {"Brianna",36},{"Natalie",37},{"Olivia",38},{"Elizabeth",39},{"Charlotte",40},{"Emma",41}
+    {"Hannah", 21}, {"Audrey", 22}, {"Jasmine", 23}, {"Giselle", 24}, {"Amelia", 25},
+    {"Isabella", 26}, {"Zoe", 27}, {"Ava", 28}, {"Camila", 29}, {"Violet", 30},
+    {"Sophia", 31}, {"Evelyn", 32}, {"Nicole", 33}, {"Ashley", 34}, {"Grace", 35},
+    {"Brianna", 36}, {"Natalie", 37}, {"Olivia", 38}, {"Elizabeth", 39}, {"Charlotte", 40},
+    {"Emma", 41}, {"Misty", 45}
 };
 static const int NUM_DADS = sizeof(dads) / sizeof(dads[0]);
 static const int NUM_MOMS = sizeof(moms) / sizeof(moms[0]);
@@ -36,7 +36,7 @@ static const char* FACE_FEATURE_NAMES[NUM_FACE_FEATURES] = {
     "Cheek Width", "Eye Opening", "Lip Thickness", "Jaw Width", "Jaw Shape",
     "Chin Bone", "Chin Length", "Chin Shape", "Chin Hole", "Neck Thickness"
 };
-static const int NUM_HAIRSTYLES = 39, NUM_HAIRCOLORS = 64, NUM_EYEBROWS = 33, NUM_EYEBROWCOLORS = 64, NUM_EYECOLORS = 32, NUM_TOPS = 136, NUM_UNDERSHIRTS = 60, NUM_LEGS = 80, NUM_SHOES = 50;
+static const int NUM_HAIRSTYLES = 74, NUM_HAIRCOLORS = 64, NUM_EYEBROWS = 34, NUM_EYEBROWCOLORS = 64, NUM_EYECOLORS = 32, NUM_TOPS = 350, NUM_UNDERSHIRTS = 150, NUM_LEGS = 120, NUM_SHOES = 100;
 static const char* GENDERS[] = { "Male", "Female" };
 
 // State
@@ -45,10 +45,23 @@ static int blend = 50, skin = 50;
 static int hairIdx = 0, hairColor = 0, eyebrowIdx = 0, eyebrowColor = 0, eyeColor = 0;
 static float faceFeatures[NUM_FACE_FEATURES] = { 0 };
 static int topIdx = 0, undershirtIdx = 0, legIdx = 0, shoeIdx = 0;
+
 // Camera state
 bool wardrobeCamActive = false;
 bool creatorCamEnabled = false;
 static Cam customCam = 0;
+
+// --- UI Constants (Defined in script.cpp, declared here as extern) ---
+extern const int FONT;
+extern const RGBA BG_COLOR;
+extern const RGBA HEADER_COLOR;
+extern const RGBA TAB_BG_COLOR;
+extern const RGBA SELECTED_TAB_COLOR;
+extern const RGBA OPTION_COLOR;
+extern const RGBA SELECTED_COLOR;
+extern const RGBA TEXT_COLOR;
+extern const RGBA SELECTED_TEXT_COLOR;
+extern const RGBA HEADER_TEXT_COLOR;
 
 
 // Clamp helper
@@ -67,13 +80,11 @@ void update_character_camera() {
     }
 
     if (wardrobeCamActive) {
-        // Full body "wardrobe" view
         Vector3 camPos = ENTITY::GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(playerPed, 0.0, 2.5, 0.5);
         CAM::SET_CAM_COORD(customCam, camPos.x, camPos.y, camPos.z);
         CAM::POINT_CAM_AT_COORD(customCam, headPos.x, headPos.y, headPos.z);
     }
     else {
-        // Default face close-up view
         Vector3 camPos = ENTITY::GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(playerPed, 0.0, 1.0, 0.5);
         CAM::SET_CAM_COORD(customCam, camPos.x, camPos.y, camPos.z);
         CAM::POINT_CAM_AT_COORD(customCam, headPos.x, headPos.y, headPos.z + 0.1f);
@@ -103,7 +114,7 @@ void CharacterCreator_Apply() {
         while (!STREAMING::HAS_MODEL_LOADED(mpModel) && timeout++ < 500) WAIT(0);
         if (!STREAMING::HAS_MODEL_LOADED(mpModel)) return;
         PLAYER::SET_PLAYER_MODEL(PLAYER::PLAYER_ID(), mpModel);
-        WAIT(100); // Give time for the model to apply
+        WAIT(100);
         ped = PLAYER::PLAYER_PED_ID();
     }
     PED::SET_PED_HEAD_BLEND_DATA(
@@ -124,7 +135,6 @@ void CharacterCreator_Apply() {
 }
 
 void CharacterCreator_Init() {}
-// This function is preserved to prevent errors with script.cpp, but its logic is now handled elsewhere.
 void CharacterCreator_Tick() {}
 
 void CharacterCreator_Save(const char* path) {
@@ -196,71 +206,103 @@ void CharacterCreator_NextEyeColor(int dir) { eyeColor = (eyeColor + dir + NUM_E
 enum CreatorPage { CREATOR_MAIN = 0, CREATOR_FACE, CREATOR_CLOTHES };
 static int creatorPage = 0;
 
+
 // =================================================================================
-// --- CORRECTED MENU DRAWING FUNCTION ---
+// --- REVAMPED MENU DRAWING FUNCTION ---
 // =================================================================================
 void CharacterCreator_DrawMenu(int& menuIndex, int& menuCategory) {
+    float x = 0.02f, y = 0.13f, w = 0.29f, h = 0.038f;
+
+    // Determine the number of options for the current page
+    int numOptions = 0;
+    if (creatorPage == CREATOR_MAIN) {
+        numOptions = 13; // Main page has 13 options
+    }
+    else if (creatorPage == CREATOR_FACE) {
+        numOptions = NUM_FACE_FEATURES + 1; // Face page has 20 features + Back button
+    }
+    else if (creatorPage == CREATOR_CLOTHES) {
+        numOptions = 6; // Clothes page has 5 clothing options + Back button
+    }
+
+    // Calculate total height including tab bar and options
+    float tabBarHeight = 0.028f; // Height of the tab bar itself
+    float optionsContentHeight = h * numOptions; // Total height of all options
+    float totalMenuHeight = tabBarHeight + optionsContentHeight + (MENU_H - 0.004f); // Add a little extra space for bottom padding
+
+    // Calculate the center Y for the entire menu block (tabs + options)
+    float menuBlockCenterY = y - 0.053f + (totalMenuHeight / 2.0f); // y - 0.053f is the top of the tabs
+
+    // Draw ONE unified background for the tabs and options.
+    GRAPHICS::DRAW_RECT(x + w * 0.5f, menuBlockCenterY, w, totalMenuHeight, BG_COLOR.r, BG_COLOR.g, BG_COLOR.b, BG_COLOR.a);
+
+
     // --- Page Tab Drawing & Navigation ---
     const char* pages[3] = { "Main", "Face", "Clothes" };
-    float x = 0.02f, y = 0.13f, w = 0.29f, h = 0.038f;
+    float tabRowY = y - 0.053f; // Y position for the top of the tab row
+    float tabSectionWidth = w / 3.0f; // Each tab takes 1/3 of the menu width
+
     for (int i = 0; i < 3; ++i) {
-        GRAPHICS::DRAW_RECT(x + (w * 0.33f) * i + w * 0.17f, y - 0.045f, w * 0.31f, 0.028f,
-            i == creatorPage ? 70 : 24, i == creatorPage ? 140 : 40, i == creatorPage ? 215 : 90, 210);
-        UI::SET_TEXT_FONT(0);
+        float tabX = x + (tabSectionWidth * i) + (tabSectionWidth / 2.0f); // Center X for each tab
+        RGBA currentTabColor = (i == creatorPage) ? SELECTED_TAB_COLOR : TAB_BG_COLOR;
+
+        // Draw the tab background
+        GRAPHICS::DRAW_RECT(tabX, tabRowY + (tabBarHeight / 2.0f), tabSectionWidth, tabBarHeight,
+            currentTabColor.r, currentTabColor.g, currentTabColor.b, currentTabColor.a);
+
+        // Draw the tab text
+        UI::SET_TEXT_FONT(FONT);
         UI::SET_TEXT_SCALE(0.0f, 0.36f);
-        UI::SET_TEXT_COLOUR(255, 255, 255, 245);
+        UI::SET_TEXT_COLOUR(TEXT_COLOR.r, TEXT_COLOR.g, TEXT_COLOR.b, TEXT_COLOR.a);
         UI::SET_TEXT_CENTRE(1);
         UI::_SET_TEXT_ENTRY("STRING");
         UI::_ADD_TEXT_COMPONENT_STRING(const_cast<char*>(pages[i]));
-        UI::_DRAW_TEXT(x + (w * 0.33f) * i + w * 0.17f, y - 0.051f);
+        UI::_DRAW_TEXT(tabX, tabRowY + 0.005f); // Position text within the tab
     }
+    UI::SET_TEXT_CENTRE(0); // Reset text alignment after drawing tabs
 
+
+    // --- Handle Tab Switching Input ---
     if (IsKeyJustUp(VK_NUMPAD7) || PadPressed(BTN_LB)) { creatorPage = (creatorPage + 2) % 3; menuIndex = 0; }
     if (IsKeyJustUp(VK_NUMPAD9) || PadPressed(BTN_RB)) { creatorPage = (creatorPage + 1) % 3; menuIndex = 0; }
 
-    // --- Page-Specific Logic ---
+    // --- Page-Specific Options Drawing ---
+    float optionsStartY = y; // Options start at MENU_Y, directly below the tab bar visually
+
     if (creatorPage == CREATOR_MAIN) {
-        wardrobeCamActive = false; // Always use face cam on main page
-        const int numOptions = 13;
-        const char* labels[numOptions] = {
-            "Creator Camera", "Gender","Dad","Mom","Blend","Skin","Hair Style","Hair Color",
-            "Eyebrow","Eyebrow Color","Eye Color","Go to Face Features","Go to Clothes"
+        wardrobeCamActive = false; // Ensure wardrobe cam is off on this page
+        const int numMainOptions = 13;
+        const char* labels[numMainOptions] = {
+            "Creator Camera", "Gender","Dad","Mom","Shape Blend","Skin Blend","Hair Style","Hair Color",
+            "Eyebrows","Eyebrow Color","Eye Color","Face Features","Clothes"
         };
-        GRAPHICS::DRAW_RECT(x + w * 0.5f, y + h * (numOptions / 2.0f) + (h / 2.0f), w, h * (numOptions + 1), 24, 24, 32, 220);
-        UI::SET_TEXT_FONT(0); UI::SET_TEXT_SCALE(0.0f, 0.40f); UI::SET_TEXT_COLOUR(255, 255, 220, 252);
-        UI::_SET_TEXT_ENTRY("STRING"); UI::_ADD_TEXT_COMPONENT_STRING(const_cast<char*>("Character Creator")); UI::_DRAW_TEXT(x + 0.012f, y - 0.037f);
 
-        for (int i = 0; i < numOptions; ++i) {
-            float cy = y + h * i;
-            bool active = (i == menuIndex);
-            GRAPHICS::DRAW_RECT(x + w * 0.5f, cy + (h - 0.004f) * 0.5f, w, h - 0.004f, active ? 120 : 60, active ? 205 : 80, active ? 215 : 80, active ? 255 : 135);
-            UI::SET_TEXT_FONT(0); UI::SET_TEXT_SCALE(0.0f, 0.36f); UI::SET_TEXT_COLOUR(0, 0, 0, 255);
-            UI::_SET_TEXT_ENTRY("STRING"); UI::_ADD_TEXT_COMPONENT_STRING(const_cast<char*>(labels[i])); UI::_DRAW_TEXT(x + 0.017f, cy + 0.007f);
-
+        for (int i = 0; i < numMainOptions; ++i) {
             char val[64] = {};
             if (i == 0) sprintf_s(val, "%s", creatorCamEnabled ? "[ON]" : "[OFF]");
-            if (i == 1) sprintf_s(val, "%s", GENDERS[gender]);
-            if (i == 2) sprintf_s(val, "%s", dads[dadIdx].name);
-            if (i == 3) sprintf_s(val, "%s", moms[momIdx].name);
-            if (i == 4) sprintf_s(val, "%d", blend);
-            if (i == 5) sprintf_s(val, "%d", skin);
-            if (i == 6) sprintf_s(val, "%d", hairIdx);
-            if (i == 7) sprintf_s(val, "%d", hairColor);
-            if (i == 8) sprintf_s(val, "%d", eyebrowIdx);
-            if (i == 9) sprintf_s(val, "%d", eyebrowColor);
-            if (i == 10) sprintf_s(val, "%d", eyeColor);
-            if (i < numOptions - 2) {
-                UI::SET_TEXT_FONT(0); UI::SET_TEXT_SCALE(0.0f, 0.34f); UI::SET_TEXT_COLOUR(60, 60, 130, 255); UI::SET_TEXT_CENTRE(0);
-                UI::_SET_TEXT_ENTRY("STRING"); UI::_ADD_TEXT_COMPONENT_STRING(val); UI::_DRAW_TEXT(x + w - 0.06f, cy + 0.007f);
-            }
+            else if (i == 1) sprintf_s(val, "< %s >", GENDERS[gender]);
+            else if (i == 2) sprintf_s(val, "< %s >", dads[dadIdx].name);
+            else if (i == 3) sprintf_s(val, "< %s >", moms[momIdx].name);
+            else if (i == 4) sprintf_s(val, "< %d%% >", blend);
+            else if (i == 5) sprintf_s(val, "< %d%% >", skin);
+            else if (i == 6) sprintf_s(val, "< %d >", hairIdx);
+            else if (i == 7) sprintf_s(val, "< %d >", hairColor);
+            else if (i == 8) sprintf_s(val, "< %d >", eyebrowIdx);
+            else if (i == 9) sprintf_s(val, "< %d >", eyebrowColor);
+            else if (i == 10) sprintf_s(val, "< %d >", eyeColor);
+
+            if (i < 11) DrawPairedMenuOption(labels[i], val, x, optionsStartY + h * i, w, h, i == menuIndex);
+            else DrawMenuOption(labels[i], x, optionsStartY + h * i, w, h, i == menuIndex);
         }
+
         int up = 0, down = 0, left = 0, right = 0;
         if (IsKeyJustUp(VK_NUMPAD8) || PadPressed(DPAD_UP)) up = 1;
         if (IsKeyJustUp(VK_NUMPAD2) || PadPressed(DPAD_DOWN)) down = 1;
         if (IsKeyJustUp(VK_NUMPAD4) || PadPressed(DPAD_LEFT)) left = 1;
         if (IsKeyJustUp(VK_NUMPAD6) || PadPressed(DPAD_RIGHT)) right = 1;
-        if (up) menuIndex = (menuIndex - 1 + numOptions) % numOptions;
-        if (down) menuIndex = (menuIndex + 1) % numOptions;
+        if (up) menuIndex = (menuIndex - 1 + numMainOptions) % numMainOptions;
+        if (down) menuIndex = (menuIndex + 1) % numMainOptions;
+
         int dir = right - left;
         if (dir) {
             switch (menuIndex) {
@@ -278,8 +320,8 @@ void CharacterCreator_DrawMenu(int& menuIndex, int& menuCategory) {
         }
         if (IsKeyJustUp(VK_NUMPAD5) || PadPressed(BTN_A)) {
             if (menuIndex == 0) creatorCamEnabled = !creatorCamEnabled;
-            if (menuIndex == numOptions - 2) { creatorPage = CREATOR_FACE; menuIndex = 0; }
-            if (menuIndex == numOptions - 1) { creatorPage = CREATOR_CLOTHES; menuIndex = 0; }
+            if (menuIndex == 11) { creatorPage = CREATOR_FACE; menuIndex = 0; }
+            if (menuIndex == 12) { creatorPage = CREATOR_CLOTHES; menuIndex = 0; }
         }
         if (PadPressed(BTN_B)) {
             creatorCamEnabled = false;
@@ -291,94 +333,70 @@ void CharacterCreator_DrawMenu(int& menuIndex, int& menuCategory) {
         }
     }
     else if (creatorPage == CREATOR_FACE) {
-        wardrobeCamActive = false;
-        const int numOptions = NUM_FACE_FEATURES + 2;
-        GRAPHICS::DRAW_RECT(x + w * 0.5f, y + h * (numOptions / 2.0f) + (h / 2.0f), w, h * (numOptions + 1), 34, 28, 48, 210);
-        UI::SET_TEXT_FONT(0); UI::SET_TEXT_SCALE(0.0f, 0.40f); UI::SET_TEXT_COLOUR(255, 255, 220, 252);
-        UI::_SET_TEXT_ENTRY("STRING"); UI::_ADD_TEXT_COMPONENT_STRING(const_cast<char*>("Face Features")); UI::_DRAW_TEXT(x + 0.012f, y - 0.037f);
+        wardrobeCamActive = false; // Ensure wardrobe cam is off on this page
+        const int numFaceOptions = NUM_FACE_FEATURES + 1; // 20 features + Back button
 
-        for (int i = 0; i < numOptions; ++i) {
-            float cy = y + h * i;
-            bool active = (i == menuIndex);
-            GRAPHICS::DRAW_RECT(x + w * 0.5f, cy + (h - 0.004f) * 0.5f, w, h - 0.004f, active ? 120 : 60, active ? 180 : 70, active ? 230 : 90, active ? 255 : 130);
-            UI::SET_TEXT_FONT(0); UI::SET_TEXT_SCALE(0.0f, 0.33f); UI::SET_TEXT_COLOUR(0, 0, 0, 255);
-            UI::_SET_TEXT_ENTRY("STRING");
-            if (i < NUM_FACE_FEATURES) UI::_ADD_TEXT_COMPONENT_STRING(const_cast<char*>(FACE_FEATURE_NAMES[i]));
-            else if (i == NUM_FACE_FEATURES) UI::_ADD_TEXT_COMPONENT_STRING(const_cast<char*>("Go to Clothes"));
-            else UI::_ADD_TEXT_COMPONENT_STRING(const_cast<char*>("Back to Main"));
-            UI::_DRAW_TEXT(x + 0.017f, cy + 0.008f);
-
+        for (int i = 0; i < numFaceOptions; ++i) {
             if (i < NUM_FACE_FEATURES) {
-                char vbuf[32]; sprintf_s(vbuf, "%.2f", faceFeatures[i]);
-                UI::SET_TEXT_FONT(0); UI::SET_TEXT_SCALE(0.0f, 0.32f); UI::SET_TEXT_COLOUR(70, 40, 150, 255); UI::SET_TEXT_CENTRE(0);
-                UI::_SET_TEXT_ENTRY("STRING"); UI::_ADD_TEXT_COMPONENT_STRING(vbuf); UI::_DRAW_TEXT(x + w - 0.08f, cy + 0.008f);
+                char vbuf[32]; sprintf_s(vbuf, "< %.2f >", faceFeatures[i]);
+                DrawPairedMenuOption(FACE_FEATURE_NAMES[i], vbuf, x, optionsStartY + h * i, w, h, i == menuIndex);
+            }
+            else {
+                DrawMenuOption("Back to Main", x, optionsStartY + h * i, w, h, i == menuIndex);
             }
         }
+
         int up = 0, down = 0, left = 0, right = 0;
         if (IsKeyJustUp(VK_NUMPAD8) || PadPressed(DPAD_UP)) up = 1;
         if (IsKeyJustUp(VK_NUMPAD2) || PadPressed(DPAD_DOWN)) down = 1;
         if (IsKeyJustUp(VK_NUMPAD4) || PadPressed(DPAD_LEFT)) left = 1;
         if (IsKeyJustUp(VK_NUMPAD6) || PadPressed(DPAD_RIGHT)) right = 1;
-        if (up) menuIndex = (menuIndex - 1 + numOptions) % numOptions;
-        if (down) menuIndex = (menuIndex + 1) % numOptions;
+        if (up) menuIndex = (menuIndex - 1 + numFaceOptions) % numFaceOptions;
+        if (down) menuIndex = (menuIndex + 1) % numFaceOptions;
+
         int dir = right - left;
         if (dir && menuIndex < NUM_FACE_FEATURES) CharacterCreator_NudgeFaceFeature(menuIndex, dir * 0.05f);
 
         if (IsKeyJustUp(VK_NUMPAD5) || PadPressed(BTN_A)) {
-            if (menuIndex == numOptions - 2) { creatorPage = CREATOR_CLOTHES; menuIndex = 0; }
-            if (menuIndex == numOptions - 1) { creatorPage = CREATOR_MAIN; menuIndex = 0; }
+            if (menuIndex == numFaceOptions - 1) { creatorPage = CREATOR_MAIN; menuIndex = 0; }
         }
         if (PadPressed(BTN_B)) { creatorPage = CREATOR_MAIN; menuIndex = 0; }
     }
     else if (creatorPage == CREATOR_CLOTHES) {
-        const int numOptions = 6;
-        const char* labels[numOptions] = {
+        const int numClothesOptions = 6; // 5 clothing options + Back button
+        const char* labels[numClothesOptions] = {
             "Top", "Undershirt", "Legs", "Shoes", "Wardrobe Cam", "Back to Main"
         };
-        GRAPHICS::DRAW_RECT(x + w * 0.5f, y + h * (numOptions / 2.0f) + (h / 2.0f), w, h * (numOptions + 1), 34, 28, 48, 210);
-        UI::SET_TEXT_FONT(0); UI::SET_TEXT_SCALE(0.0f, 0.40f); UI::SET_TEXT_COLOUR(255, 255, 220, 252);
-        UI::_SET_TEXT_ENTRY("STRING"); UI::_ADD_TEXT_COMPONENT_STRING(const_cast<char*>("Clothes")); UI::_DRAW_TEXT(x + 0.012f, y - 0.037f);
 
-        for (int i = 0; i < numOptions; ++i) {
-            float cy = y + h * i;
-            bool active = (i == menuIndex);
-            GRAPHICS::DRAW_RECT(x + w * 0.5f, cy + (h - 0.004f) * 0.5f, w, h - 0.004f, active ? 120 : 60, active ? 180 : 70, active ? 230 : 90, active ? 255 : 130);
-            UI::SET_TEXT_FONT(0); UI::SET_TEXT_SCALE(0.0f, 0.36f); UI::SET_TEXT_COLOUR(0, 0, 0, 255);
-            UI::_SET_TEXT_ENTRY("STRING"); UI::_ADD_TEXT_COMPONENT_STRING(const_cast<char*>(labels[i])); UI::_DRAW_TEXT(x + 0.017f, cy + 0.007f);
+        for (int i = 0; i < numClothesOptions; ++i) {
+            char vbuf[32];
+            if (i == 0) sprintf_s(vbuf, "< %d >", topIdx);
+            else if (i == 1) sprintf_s(vbuf, "< %d >", undershirtIdx);
+            else if (i == 2) sprintf_s(vbuf, "< %d >", legIdx);
+            else if (i == 3) sprintf_s(vbuf, "< %d >", shoeIdx);
+            else if (i == 4) sprintf_s(vbuf, "%s", wardrobeCamActive ? "[ON]" : "[OFF]");
 
-            if (i < 4) {
-                char vbuf[32];
-                if (i == 0) sprintf_s(vbuf, "%d", topIdx);
-                if (i == 1) sprintf_s(vbuf, "%d", undershirtIdx);
-                if (i == 2) sprintf_s(vbuf, "%d", legIdx);
-                if (i == 3) sprintf_s(vbuf, "%d", shoeIdx);
-                UI::SET_TEXT_FONT(0); UI::SET_TEXT_SCALE(0.0f, 0.32f); UI::SET_TEXT_COLOUR(70, 40, 150, 255); UI::SET_TEXT_CENTRE(0);
-                UI::_SET_TEXT_ENTRY("STRING"); UI::_ADD_TEXT_COMPONENT_STRING(vbuf); UI::_DRAW_TEXT(x + w - 0.08f, cy + 0.008f);
-            }
-            if (i == 4) { // Wardrobe Cam Toggle
-                char vbuf[32]; sprintf_s(vbuf, "%s", wardrobeCamActive ? "[ON]" : "[OFF]");
-                UI::SET_TEXT_FONT(0); UI::SET_TEXT_SCALE(0.0f, 0.32f); UI::SET_TEXT_COLOUR(wardrobeCamActive ? 36 : 100, wardrobeCamActive ? 220 : 100, wardrobeCamActive ? 60 : 100, 255);
-                UI::SET_TEXT_CENTRE(0); UI::_SET_TEXT_ENTRY("STRING"); UI::_ADD_TEXT_COMPONENT_STRING(vbuf); UI::_DRAW_TEXT(x + w - 0.08f, cy + 0.008f);
-            }
+            if (i < 5) DrawPairedMenuOption(labels[i], vbuf, x, optionsStartY + h * i, w, h, i == menuIndex);
+            else DrawMenuOption(labels[i], x, optionsStartY + h * i, w, h, i == menuIndex);
         }
+
         int up = 0, down = 0, left = 0, right = 0;
         if (IsKeyJustUp(VK_NUMPAD8) || PadPressed(DPAD_UP)) up = 1;
         if (IsKeyJustUp(VK_NUMPAD2) || PadPressed(DPAD_DOWN)) down = 1;
         if (IsKeyJustUp(VK_NUMPAD4) || PadPressed(DPAD_LEFT)) left = 1;
         if (IsKeyJustUp(VK_NUMPAD6) || PadPressed(DPAD_RIGHT)) right = 1;
-        if (up) menuIndex = (menuIndex - 1 + numOptions) % numOptions;
-        if (down) menuIndex = (menuIndex + 1) % numOptions;
+        if (up) menuIndex = (menuIndex - 1 + numClothesOptions) % numClothesOptions;
+        if (down) menuIndex = (menuIndex + 1) % numClothesOptions;
+
         int dir = right - left;
         if (dir && menuIndex < 4) CharacterCreator_NextClothes(menuIndex, dir);
 
         if (IsKeyJustUp(VK_NUMPAD5) || PadPressed(BTN_A)) {
-            if (menuIndex == 4) { // Wardrobe Cam toggle
-                // Flip the state of the wardrobe cam
+            if (menuIndex == 4) {
                 wardrobeCamActive = !wardrobeCamActive;
-                // The master camera's state now mirrors the wardrobe cam's state.
-                creatorCamEnabled = wardrobeCamActive;
+                creatorCamEnabled = wardrobeCamActive; // Keep creatorCamEnabled in sync
             }
-            if (menuIndex == 5) { // Back to Main
+            if (menuIndex == 5) {
                 creatorPage = CREATOR_MAIN;
                 menuIndex = 0;
             }
@@ -386,8 +404,6 @@ void CharacterCreator_DrawMenu(int& menuIndex, int& menuCategory) {
         if (PadPressed(BTN_B)) { creatorPage = CREATOR_MAIN; menuIndex = 0; }
     }
 
-    // --- Camera Update (Moved to the end) ---
-    // Now the camera updates AFTER all the logic for the current frame is complete.
     if (creatorCamEnabled) {
         update_character_camera();
     }
